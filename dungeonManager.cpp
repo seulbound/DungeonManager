@@ -7,6 +7,8 @@
 #include <chrono>
 #include <atomic>
 #include <iomanip>
+#include <sstream>
+#include <cctype>
 
 class DungeonManager {
 private:
@@ -116,57 +118,24 @@ public:
         }
     }
 
-    // void playerProducer(int interval_ms, int max_runtime_seconds) {
-    //     std::uniform_int_distribution<> role_dist(0, 2);
-    //     std::uniform_int_distribution<> count_dist(1, 3);
-        
-    //     auto start_time = std::chrono::steady_clock::now();
-        
-    //     while (true) {
-    //         auto current_time = std::chrono::steady_clock::now();
-    //         auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time).count();
-            
-    //         if (elapsed >= max_runtime_seconds) {
-    //             std::cout << "Producer: Reached maximum runtime. Stopping producer." << std::endl;
-    //             break;
-    //         }
-            
-    //         int tanks_to_add = 0;
-    //         int healers_to_add = 0;
-    //         int dps_to_add = 0;
-            
-    //         int players_to_add = count_dist(gen);
-    //         for (int i = 0; i < players_to_add; i++) {
-    //             int role = role_dist(gen);
-    //             switch (role) {
-    //                 case 0: tanks_to_add++; break;
-    //                 case 1: healers_to_add++; break;
-    //                 case 2: dps_to_add++; break;
-    //             }
-    //         }
-            
-    //         {
-    //             std::lock_guard<std::mutex> lock(mtx);
-    //             addPlayersToQueue(tanks_to_add, healers_to_add, dps_to_add);
-    //         }
-            
-    //         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
-    //     }
-    // }
-
-    void startInstances(int t1, int t2, int producer_interval_ms = 3000, int max_runtime_seconds = 30) {
+    void startInstances(int t1, int t2) {
         std::vector<std::thread> instances;
         
         for (int i = 0; i < dungeon_count; i++) {
             instances.emplace_back(&DungeonManager::dungeonInstance, this, i, t1, t2);
         }
         
-        // std::thread producer_thread(&DungeonManager::playerProducer, this, producer_interval_ms, max_runtime_seconds);
-        
         auto start_time = std::chrono::steady_clock::now();
-        while (std::chrono::steady_clock::now() - start_time < std::chrono::seconds(max_runtime_seconds)) {
+        
+        while (std::chrono::steady_clock::now() - start_time < std::chrono::seconds(30)) {
             displayStatus();
             std::this_thread::sleep_for(std::chrono::seconds(2));
+            
+            std::lock_guard<std::mutex> lock(mtx);
+            if (tank_queue < 1 || healer_queue < 1 || dps_queue < 3) {
+                std::cout << "Not enough players to form more parties. Shutting down..." << std::endl;
+                break;
+            }
         }
         
         {
@@ -174,8 +143,6 @@ public:
             shutdown = true;
             cv.notify_all();
         }
-        
-        // producer_thread.join();
         
         for (auto& instance : instances) {
             instance.join();
@@ -338,7 +305,7 @@ int main() {
     std::cout << "Instances: " << n << " | Initial Tanks: " << t 
               << " | Initial Healers: " << h << " | Initial DPS: " << d << std::endl;
     std::cout << "Dungeon time range: " << t1 << "s to " << t2 << "s" << std::endl;
-    std::cout << "Producer will add new players every 3 seconds for 30 seconds." << std::endl;
+    std::cout << "System will run for maximum 30 seconds OR until no more parties can be formed." << std::endl;
     
     DungeonManager manager(n, t, h, d);
     manager.startInstances(t1, t2);
