@@ -127,7 +127,7 @@ public:
             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time).count();
             
             if (elapsed >= max_runtime_seconds) {
-                std::cout << "Producer: Reached maximum runtime. Stopping producer." << std::endl;
+                std::cout << "Reached maximum runtime. Stopping producer." << std::endl;
                 break;
             }
             
